@@ -20,7 +20,14 @@ fn selected_rand_keyword() -> (&'static str, &'static str) {
 }
 
 fn check_attempt(attempt: &str, keyword: &str, hint: &mut [String]) -> bool {
-    let replace_char = attempt.trim().chars().next().expect("Error: Replace char");
+    if attempt.trim().is_empty() {
+        return false;
+    }
+
+    let replace_char = match attempt.trim().chars().next() {
+      Some(char) => char,
+      None => return false, 
+    };
 
     if keyword.contains(attempt.trim()) {
         for (i, word) in keyword.chars().enumerate() {
