@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::{io::{self, Write}, process::Command};
 
 use rand::seq::SliceRandom;
 
@@ -6,6 +6,7 @@ enum ActionsGame {
     YouLose,
     RestartLoop,
     YouWin,
+    DecrementAttempt
 }
 
 fn selected_rand_keyword() -> (&'static str, &'static str) {
@@ -24,10 +25,16 @@ fn check_attempt(attempt: &str, keyword: &str, hint: &mut [String]) -> bool {
         return false;
     }
 
+
     let replace_char = match attempt.trim().chars().next() {
       Some(char) => char,
       None => return false, 
     };
+    
+
+    if hint.join("").contains(&replace_char.to_string()) {
+        return false;
+    }
 
     if keyword.contains(attempt.trim()) {
         for (i, word) in keyword.chars().enumerate() {
@@ -82,7 +89,7 @@ fn manager_actions_game(input_user: &str, keyword: &str, message: &mut String, h
     
     message.clear();
     message.push_str("Tente novamente");
-    ActionsGame::RestartLoop
+    ActionsGame::DecrementAttempt
 }
 
 fn draw_hangman(tries: usize) {
@@ -137,6 +144,17 @@ fn draw_hangman(tries: usize) {
     println!("|__________");
 }
 
+fn print_result(arg: &str) {
+    match Command::new("figlet").arg(arg).output() {
+       Ok(output) => {
+            if output.status.success() {
+                println!("{}", String::from_utf8_lossy(&output.stdout));
+            }
+        },
+        Err(_) => println!("Parabéns, você venceu!!!"), 
+    };
+}
+
 fn main() {
     let mut input_user = String::new();
     let (keyword, hint) = selected_rand_keyword();
@@ -159,10 +177,9 @@ fn main() {
         println!("Tentativas restantes: {}", attempt);
 
         draw_hangman(attempt);
-        attempt -= 1;
 
         if attempt == 0 {
-            println!("Você Perdeu!!");
+            print_result("Voce Perdeu!!");
             break;
         }
 
@@ -178,15 +195,20 @@ fn main() {
 
         match manager_actions_game(&input_user,keyword, &mut message, &hits, checked_attempt) {
             ActionsGame::YouWin => {
-                println!("Você Venceu");
+                print_result("Voce venceu!!!");
                 break;
             },
             ActionsGame::YouLose => {
+                print_result("Voce perdeu!!!");
                 break;
             },
             ActionsGame::RestartLoop => {
                 continue;
             },
+            ActionsGame::DecrementAttempt => {
+                attempt -= 1;
+                continue;
+            }
         }
      }
 }
