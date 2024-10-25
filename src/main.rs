@@ -1,10 +1,10 @@
+mod data;
 mod error;
 
 use std::io::{stdin, stdout, Write};
 
-use rand::{seq::SliceRandom, thread_rng};
-
 use colored::*;
+use data::selected_rand_keyword;
 
 pub use self::error::{GameError, Result};
 
@@ -24,12 +24,15 @@ enum GameActions {
 
 impl Game {
     fn new() -> Self {
+        let keyword = selected_rand_keyword();
+        let hits = vec![" _".to_string(); keyword.0.len()];
+
         Self {
             attempts: 6,
-            message: "SLDLDLDL".to_string(),
+            message: "".to_string(),
             input_hunch: String::new(),
-            keyword: ("", ""),
-            hits: Vec::new(),
+            keyword,
+            hits,
         }
     }
 
@@ -38,9 +41,9 @@ impl Game {
         self.verify_input(self.get_input()?)?;
         self.attempts -= 1;
 
-        if self.verify_attempt() {
+        if self.check_hit() {
             self.clear_scream();
-            self.show_message();
+            self.display_message();
             let answer = self.take_a_guess()?;
             if self.yas_no(&answer) {
                 return Ok(self.attempt_word(&answer));
@@ -58,19 +61,10 @@ impl Game {
         Ok(GameActions::RestartLoop)
     }
 
-    fn set_up(&mut self) {
-        self.selected_rand_keyword();
-        self.hidden_keyword();
-    }
-
-    fn update(&mut self) {
-        self.message = "".to_string();
-    }
-
     fn take_a_guess(&mut self) -> Result<String> {
         self.draw_hangman();
         self.message = "Já sabe qual a palavras? Caso sim, digite a palavra ou [N]ão".to_string();
-        self.show_message();
+        self.display_message();
         if let Ok(i) = self.get_input() {
             return Ok(i);
         } else {
@@ -86,7 +80,7 @@ impl Game {
         false
     }
 
-    fn verify_attempt(&mut self) -> bool {
+    fn check_hit(&mut self) -> bool {
         if self.keyword.0.contains(&self.input_hunch) && !self.hits.contains(&self.input_hunch) {
             self.message = "Muito bem :)".to_string();
             for (i, v) in self.keyword.0.chars().enumerate() {
@@ -99,20 +93,20 @@ impl Game {
         } else {
             self.message = "Você errou, tente novamanete!".to_string();
             self.clear_scream();
-            self.show_message();
+            self.display_message();
             false
         }
     }
     fn attempt_word(&mut self, attempt_word: &str) -> GameActions {
         if self.keyword.0 == attempt_word {
             self.message = "Tu ganhou!!! AEEEEE!".to_string();
-            self.show_message();
+            self.display_message();
             return GameActions::Win;
         }
 
         self.clear_scream();
         self.message = "Continue tentando :)".to_string();
-        self.show_message();
+        self.display_message();
         GameActions::RestartLoop
     }
 
@@ -120,11 +114,11 @@ impl Game {
         if input.len() > 1 {
             return Err(GameError::Error("Gigite somente uma letra".to_string()));
         }
-        self.input_hunch = input.trim().to_ascii_lowercase();
+        self.input_hunch = input;
         Ok(())
     }
 
-    fn show_message(&self) {
+    fn display_message(&self) {
         println!("{}", self.message);
     }
 
@@ -181,85 +175,15 @@ impl Game {
         println!("|__________             {}", self.hits.join(""));
     }
 
-    fn hidden_keyword(&mut self) {
-        for _ in 0..self.keyword.0.len() {
-            self.hits.push(" _".to_string());
-        }
-    }
-
-    fn selected_rand_keyword(&mut self) {
-        let words_and_hints = vec![
-            (
-                "computador",
-                "É uma máquina usada para processar informações.",
-            ),
-            ("bicicleta", "Um veículo de duas rodas movido a pedal."),
-            ("elefante", "É um animal grande com tromba."),
-            ("montanha", "Uma formação geológica elevada."),
-            ("floresta", "Um lugar com muitas árvores e vida selvagem."),
-            ("oceano", "Corpo de água que cobre a maior parte da Terra."),
-            (
-                "futebol",
-                "Esporte popular jogado com uma bola e dois gols.",
-            ),
-            ("astronauta", "Pessoa que viaja pelo espaço."),
-            (
-                "universo",
-                "Tudo o que existe, incluindo galáxias e estrelas.",
-            ),
-            ("planeta", "Corpo celeste que orbita uma estrela."),
-            ("satélite", "Objeto que orbita um planeta ou estrela."),
-            ("estrela", "Corpo celeste que brilha no céu noturno."),
-            ("foguete", "Veículo usado para viagens espaciais."),
-            ("amizade", "Relação afetiva entre pessoas."),
-            ("chocolate", "Doce feito a partir do cacau."),
-            (
-                "relâmpago",
-                "Fenômeno elétrico visível durante tempestades.",
-            ),
-            ("vulcão", "Estrutura geológica que pode liberar lava."),
-            ("jardim", "Local onde plantas e flores são cultivadas."),
-            ("dinossauro", "Animal pré-histórico extinto."),
-            ("arqueologia", "Estudo de sociedades antigas."),
-            ("pirâmide", "Estrutura histórica encontrada no Egito."),
-            ("continente", "Uma das grandes massas de terra do planeta."),
-            ("civilização", "Sociedade humana com cultura desenvolvida."),
-            ("maratona", "Corrida de longa distância."),
-            ("esquiar", "Deslizar na neve usando equipamentos."),
-            ("glaciar", "Grande massa de gelo em movimento."),
-            ("baleia", "Grande mamífero que vive no oceano."),
-            ("máquina", "Equipamento projetado para realizar tarefas."),
-            (
-                "jornalista",
-                "Pessoa que trabalha com notícias e informações.",
-            ),
-            (
-                "paralelepipedo",
-                "Pedra de calçamento com forma geométrica.",
-            ),
-            ("biblioteca", "Lugar onde são guardados muitos livros."),
-            ("borboleta", "Inseto com asas coloridas."),
-            ("parafuso", "Peça metálica usada para fixação."),
-            ("garrafa", "Recipiente para armazenar líquidos."),
-        ];
-
-        let selected_word_and_hint = words_and_hints.choose(&mut thread_rng()).unwrap();
-        self.keyword = *selected_word_and_hint;
-    }
-
     fn get_input(&self) -> Result<String> {
         let mut input = String::new();
-
-        if let Err(e) = stdout().flush() {
-            return Err(GameError::Error(e.to_string()));
-        }
-
-        if stdin().read_line(&mut input).is_ok() {
-            Ok(input.trim().to_ascii_lowercase())
-        } else {
-            Err(GameError::Error("Invalid input".to_string()))
-        }
+        stdout().flush().ok();
+        stdin()
+            .read_line(&mut input)
+            .map_err(|_| GameError::Error("Erro ao ler entrada".to_string()))?;
+        Ok(input.trim().to_lowercase())
     }
+
     fn clear_scream(&self) {
         print!("{esc}c", esc = 27 as char);
     }
@@ -268,7 +192,6 @@ impl Game {
 fn main() {
     let mut game = Game::new();
     game.clear_scream();
-    game.set_up();
 
     loop {
         match game.running() {
@@ -276,14 +199,13 @@ fn main() {
                 GameActions::Win => break,
                 GameActions::Lose => {
                     game.clear_scream();
-                    game.update();
                     game.draw_hangman();
                     game.message = "Você perdeu :(".to_string();
-                    game.show_message();
+                    game.display_message();
                     break;
                 }
                 GameActions::RestartLoop => {
-                    game.update();
+                    //
                 }
             },
             Err(err) => match err {
